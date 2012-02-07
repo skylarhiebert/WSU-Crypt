@@ -13,27 +13,58 @@ def hex_to_binary(str)
 end
 
 def get_bytes(bstr)
-	return if bstr.length % 8 != 0
+	return if bstr.size % 8 != 0
 	bytes = Array.new
-	for(k = 0; k < bstr.length / 8; k += 1)
+	(bstr.size / 8).times do |k|
 		index = k*8
-		puts index
-		bytes[k] = bstr[index..index+8]
+		bytes[k] = bstr[index,8]
 	end
 	return bytes
 end
 
-bkey = hex_to_binary(key)
+def left_shift(bstr)
+	bstr.slice(1, bstr.size) + bstr.slice(0, 1)
+end
 
-p bkey
+def right_shift(bstr)
+	bstr.slice(bstr.size - 1, 1) + bstr.slice(0, bstr.size - 1)
+end
+
+def generate_encryption_keys(key)
+	keys = Array.new
+	kp = key
+	
+	0.upto(191) do |index|
+		kp = left_shift(kp) # left rotate
+		skeys = get_bytes(kp)
+		byte = (4 * (index / 12) + (index % 4)) % 8
+		keys[index] = skeys[byte]
+	end
+	return keys
+end
+
+def generate_decryption_keys(key)
+	keys = Array.new
+	kp = key
+
+	0.upto(191) do |index|
+		skeys = get_bytes(kp)
+		byte = (4 * (index / 12) + (index % 4)) % 8
+		keys[index] = skeys[byte]
+	   kp = right_shift(kp)
+	end
+	return keys
+end	
+
+bkey = hex_to_binary(key)
 
 keys = Array.new
 kbytes = get_bytes(bkey)
 
-p kbytes
+generate_encryption_keys(bkey)
 
-for (i = 0; i < 16; i += 1) 
-	for (j = 0; j < 12; j += 1)
+0.upto(15) do |i|
+	0.upto(11) do |j|	
 
 	end
 end
