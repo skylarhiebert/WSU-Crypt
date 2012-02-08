@@ -1,7 +1,5 @@
 #!/usr/bin/env ruby
 
-key = "abcdef0123456789"
-
 def hex_to_binary(str)
 	bin = ""
 	str.chars do |c|
@@ -56,15 +54,17 @@ def generate_decryption_keys(key)
 	return keys
 end	
 
+key = "abcdef0123456789"
 bkey = hex_to_binary(key)
 
 keys = Array.new
 kbytes = get_bytes(bkey)
 
-generate_encryption_keys(bkey)
+keys = generate_encryption_keys(bkey)
 
 0.upto(15) do |i|
 	0.upto(11) do |j|	
-
+		print "#{keys[i*16 + j].to_i(2).to_s(16)}\t"
 	end
+	print "\n"
 end
