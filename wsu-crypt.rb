@@ -35,7 +35,6 @@ end
 def generate_encryption_keys(key)
 	keys = Array.new
 	kp = key
-	
 	0.upto(191) do |index|
 		kp = left_shift(kp) # left rotate
 		skeys = get_num_bits(kp, 8) # .reverse for other subkey schedule
@@ -56,7 +55,7 @@ def generate_decryption_keys(key)
 		slot = (12 * (index/12 + 1) - 1) - index % 12
 		# Reverse Key Ordering, 
 		keys[slot] = skeys[byte] 
-	   kp = right_shift(kp)
+		kp = right_shift(kp)
 	end
 	return keys
 end	
@@ -64,15 +63,33 @@ end
 def whiten (text, key)
 	words = get_num_bits(text, 16)
 	wkeys = get_num_bits(key, 16)
+	#puts "#{words[0]}\t#{words[1]}\t#{words[2]}\t#{words[3]}"
+	#puts "#{wkeys[0]}\t#{wkeys[1]}\t#{wkeys[2]}\t#{wkeys[3]}"
+
 	rvals = Array.new
 	0.upto(3) do |i|
 		rvals[i] = (words[i].to_i(2) ^ wkeys[i].to_i(2)).to_s(2)
+		rvals[i].insert(0, '0') until rvals[i].size == 16
 	end
+
 	return rvals
 end
 
-def F (r0, r1, round)
-		
+def F (r0, r1, round, ekeys)
+	t0 = G(r0, ekeys[round*12], ekeys[round*12+1], 
+			 ekeys[round*12+2], ekeys[round*12+3], round)
+	t1 = G(r1, ekeys[round*12+4], ekeys[round*12+5],
+			 ekeys[round*12+6], ekeys[round*12+7], round)
+	f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*12+8] + ekeys[round*12+9]).to_i(2)) % 2**16
+	f0 = f0.to_s(2)
+	f0.insert(0, '0') until f0.size == 16
+	f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*12+10] + ekeys[round*12+11]).to_i(2)) % 2**16
+	f1 = f1.to_s(2)
+	f1.insert(0, '0') until f1.size == 16
+
+	puts "Round #{round} : t0:#{binary_to_hex(t0)} \t t1:#{binary_to_hex(t1)} \t f0:#{binary_to_hex(f0)} \t f1:#{binary_to_hex(f1)}"
+
+	return f0, f1
 end
 
 def G (r0, k0, k1, k2, k3, round)
@@ -92,7 +109,7 @@ def G (r0, k0, k1, k2, k3, round)
 		0x0c,0xef,0xbc,0x72,0x75,0x6f,0x37,0xa1,0xec,0xd3,0x8e,0x62,0x8b,0x86,0x10,0xe8,
 		0x08,0x77,0x11,0xbe,0x92,0x4f,0x24,0xc5,0x32,0x36,0x9d,0xcf,0xf3,0xa6,0xbb,0xac,
 		0x5e,0x6c,0xa9,0x13,0x57,0x25,0xb5,0xe3,0xbd,0xa8,0x3a,0x01,0x05,0x59,0x2a,0x46]
-	
+
 	g = Array.new
 	g[0] = r0[0, 8]
 	g[1] = r0[8, 8]
@@ -104,11 +121,83 @@ def G (r0, k0, k1, k2, k3, round)
 	g[4].insert(0, '0') until g[4].size == 8
 	g[5] = (fTable[g[4].to_i(2) ^ k3.to_i(2)] ^ g[3].to_i(2)).to_s(2)
 	g[5].insert(0, '0') until g[5].size == 8
-	print "Round #{round}\n"
+	print "Round #{round} : "
 	0.upto(g.size - 1) {|i| print "g#{i}:#{g[i].to_i(2).to_s(16)}\t" }
 	print "\n"
 	return g[4] + g[5]
 end
+
+def encrypt_block(blk, encrypt_key, key_schedule)
+	rvals = whiten(blk, encrypt_key) # Whiten input
+
+	# Start 16 rounds
+	0.upto(15) do |round|
+		fvals = F(rvals[0], rvals[1], round, key_schedule)
+
+		# R2 xor F0, right-rotate by 1 bit -> R0
+		xor = (rvals[2].to_i(2) ^ fvals[0].to_i(2)).to_s(2)
+		xor.insert(0, '0') until xor.size == 16
+		nr0 = right_shift(xor)
+
+		# R3 rotate-left by 1 bit -> R3', R3' xor F1 -> R1
+		nr1 = (left_shift(rvals[3]).to_i(2) ^ fvals[1].to_i(2)).to_s(2)
+		nr1.insert(0, '0') until nr1.size == 16
+
+		# Swap values around
+		rvals[2] = rvals[0]
+		rvals[3] = rvals[1]
+		rvals[0] = nr0
+		rvals[1] = nr1
+	end
+
+	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] # Undo last swap
+
+	return whiten(y, encrypt_key).join # Whiten output and join to 64-bit string
+end
+
+def decrypt_block(blk, decrypt_key, key_schedule)
+	rvals = whiten(blk, decrypt_key) # Whiten input
+
+	# Start 16 rounds
+	0.upto(15) do |round|
+		fvals = F(rvals[0], rvals[1], round, key_schedule)
+
+		# R2 rotate-left by 1 bit -> R2', R2' xor F0 -> R0
+		nr0 = (left_shift(rvals[2]).to_i(2) ^ fvals[0].to_i(2)).to_s(2)
+		nr0.insert(0, '0') until nr0.size == 16
+
+		# R3 xor F1, right-rotate by 1 bit -> R1
+		xor = (rvals[3].to_i(2) ^ fvals[1].to_i(2)).to_s(2)
+		xor.insert(0, '0') until xor.size == 16
+		nr1 = right_shift(xor)
+
+		# Swap values around
+		rvals[2] = rvals[0]
+		rvals[3] = rvals[1]
+		rvals[0] = nr0
+		rvals[1] = nr1
+	end
+
+	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] # Undo last swap
+
+	return whiten(y, decrypt_key).join # Whiten output and join to 64-bit string
+end
+
+def print_usage
+	print "Usage: wsu-crypt [OPTION]... FILE1 FILE2\n"
+	print "Encrypt or Decrypt FILE1 with a key of FILE2 to standard output"
+	print "\n\n\t-e, -E, --encrypt\t\tEncrypt FILE1 with key FILE2"
+	print "\n\t-d, -D, --decrypt\t\tDecrypt FILE1 with key FILE2"
+	print "\n\t-v, --verbose, --debug\t\tDisplay debug text"
+	print "\n\t--help\t\t\t\tDisplay this help and exit"
+	print "\n\t--version\t\t\tOutput version information end exit"
+	print "\n\nExamples:\n\twsu-crypt -e -v plaintextfile keyfile"
+	print "\n\twsu-crypt -d ciphertextfile keyfile"
+	print "\n\nReport bugs to skylarhiebert@computer.org\n"
+	exit
+end
+
+print_usage if ARGV.size < 3
 
 # str.pack('B*')[0] converts string to binary string
 # bstr.pack('B*') converts binary string to ascii
@@ -129,16 +218,14 @@ dkeys = generate_decryption_keys(bkey)
 #puts dkeys#.pack("C*")
 
 # Print Key Table for debugging
-0.upto(15) do |i|
-	0.upto(11) do |j|
-		index = i*12 + j
-		print "#{ekeys[index].to_i(2).to_s(16)}:#{dkeys[index].to_i(2).to_s(16)}\t"
-	end
-	print "\n"
-end
-
-rvals = whiten(bpt, bkey)
-#p binary_to_hex(rvals.join)
-round = 0
-p G(rvals[0], ekeys[0], ekeys[1], ekeys[2], ekeys[3], round).to_i(2).to_s(16)
-p G(rvals[1], ekeys[4], ekeys[5], ekeys[6], ekeys[7], round).to_i(2).to_s(16)
+#0.upto(15) do |i|
+#	0.upto(11) do |j|
+#		index = i*12 + j
+#		print "#{ekeys[index].to_i(2).to_s(16)}:#{dkeys[index].to_i(2).to_s(16)}\t"
+#	end
+#	print "\n"
+#end
+eblk = encrypt_block(bpt, bkey, ekeys)
+dblk = decrypt_block(eblk, bkey, dkeys)
+puts "Encrypt Block: #{binary_to_hex(eblk)}"
+puts "Decrypt Block: #{binary_to_hex(dblk)}"
