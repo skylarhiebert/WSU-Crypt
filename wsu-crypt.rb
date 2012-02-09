@@ -87,7 +87,7 @@ def F (r0, r1, round, ekeys)
 	f1 = f1.to_s(2)
 	f1.insert(0, '0') until f1.size == 16
 
-	puts "Round #{round} : t0:#{binary_to_hex(t0)} \t t1:#{binary_to_hex(t1)} \t f0:#{binary_to_hex(f0)} \t f1:#{binary_to_hex(f1)}"
+	puts "Round #{round} : t0:#{binary_to_hex(t0)} \t t1:#{binary_to_hex(t1)} \t f0:#{binary_to_hex(f0)} \t f1:#{binary_to_hex(f1)}" if $debug
 
 	return f0, f1
 end
@@ -121,9 +121,9 @@ def G (r0, k0, k1, k2, k3, round)
 	g[4].insert(0, '0') until g[4].size == 8
 	g[5] = (fTable[g[4].to_i(2) ^ k3.to_i(2)] ^ g[3].to_i(2)).to_s(2)
 	g[5].insert(0, '0') until g[5].size == 8
-	print "Round #{round} : "
-	0.upto(g.size - 1) {|i| print "g#{i}:#{g[i].to_i(2).to_s(16)}\t" }
-	print "\n"
+	print "Round #{round} : " if $debug
+	0.upto(g.size - 1) {|i| print "g#{i}:#{g[i].to_i(2).to_s(16)}\t" } if $debug
+	print "\n" if $debug
 	return g[4] + g[5]
 end
 
@@ -184,20 +184,69 @@ def decrypt_block(blk, decrypt_key, key_schedule)
 end
 
 def print_usage
-	print "Usage: wsu-crypt [OPTION]... FILE1 FILE2\n"
+	print "Usage: wsu-crypt [OPTION]... [-e|-d] FILE1 FILE2\n"
 	print "Encrypt or Decrypt FILE1 with a key of FILE2 to standard output"
-	print "\n\n\t-e, -E, --encrypt\t\tEncrypt FILE1 with key FILE2"
-	print "\n\t-d, -D, --decrypt\t\tDecrypt FILE1 with key FILE2"
-	print "\n\t-v, --verbose, --debug\t\tDisplay debug text"
-	print "\n\t--help\t\t\t\tDisplay this help and exit"
-	print "\n\t--version\t\t\tOutput version information end exit"
-	print "\n\nExamples:\n\twsu-crypt -e -v plaintextfile keyfile"
+	print "\n\tDefault method is encryption"
+	print "\n\n\t-e, -E, --encrypt\tEncrypt FILE1 with key FILE2"
+	print "\n\t-d, -D, --decrypt\tDecrypt FILE1 with key FILE2"
+	print "\n\t-h, -x\t\t\tOutput text to hexidecimal representations"
+	print "\n\t-v, --verbose, --debug\tDisplay debug text to stdout"
+	print "\n\t--help\t\t\tDisplay this help and exit"
+	print "\n\t--version\t\tOutput version information end exit"
+	print "\n\nExamples:\n\twsu-crypt -v -e plaintextfile keyfile"
 	print "\n\twsu-crypt -d ciphertextfile keyfile"
 	print "\n\nReport bugs to skylarhiebert@computer.org\n"
 	exit
 end
 
-print_usage if ARGV.size < 3
+$debug = false
+encrypt = true
+pt_file = nil
+key_file = nil
+hex_output = false
+
+# Parse Command Line Parameters
+if ARGV.size < 2
+	if ARGV[0] == "--version" or ARGV[0] == "-version"
+		puts "wsu-crypt 1.0.0 (2012-8-2) [Skylar Hiebert]"
+		exit
+	end
+	print_usage	# Too few arguments or --help defined
+end
+
+ARGV.size.times do |i|
+	pt_file = ARGV[i] if i+1 == ARGV.size - 1
+	key_file = ARGV[i] if i+1 == ARGV.size
+	encrypt = true	if ARGV[i] == "-e"  or ARGV[i] == "-E" or ARGV[i] == "--encrypt"
+	encrypt = false if ARGV[i] == "-d" or ARGV[i] == "-D" or ARGV[i] == "--decrypt"
+	hex_output = true if ARGV[i] == "-h" or ARGV[i] == "-x"
+	$debug = true if ARGV[i] == "-v" or ARGV[i] == "--verbose" or ARGV[i] == "--debug"
+end
+#puts "encrypt:#{encrypt} debug:#{$debug} pt_file:#{pt_file} key_file:#{key_file}"
+
+plaintext = File.open(pt_file, 'rb') { |f| f.read }
+keytext = File.open(key_file, 'rb') { |f| f.read }
+
+bin_ptx = plaintext.unpack('B*')
+bin_key = keytext.unpack('B64')
+theKeys = generate_encryption_keys(bin_key[0])
+#puts bin_ptx[0].size
+#puts bin_ptx[0].size / 64
+cipher = Array.new
+cipher[0] = ""
+0.upto(bin_ptx[0].size / 64 + 1) do |i|
+	blk = bin_ptx[0][i*64, 64] unless bin_ptx[0][i*64].nil?
+	unless blk.nil? 
+		blk << '0' until blk.size == 64
+		cipher[0] << encrypt_block(blk, bin_key[0], theKeys)
+	end
+	#puts blk
+	#puts binary_to_hex(bin_ptx[0][i*64, 64]) unless bin_ptx[0][i*64].nil?
+end
+
+#print cipher.pack('B*')
+puts hex_output == true ? cipher.pack('B*').unpack('H*')[0] : cipher.pack('B*')
+#hex_output == true ? print binary_to_hex(cipher[0]) : print cipher.pack('B*')
 
 # str.pack('B*')[0] converts string to binary string
 # bstr.pack('B*') converts binary string to ascii
@@ -227,5 +276,5 @@ dkeys = generate_decryption_keys(bkey)
 #end
 eblk = encrypt_block(bpt, bkey, ekeys)
 dblk = decrypt_block(eblk, bkey, dkeys)
-puts "Encrypt Block: #{binary_to_hex(eblk)}"
-puts "Decrypt Block: #{binary_to_hex(dblk)}"
+#puts "Encrypt Block: #{binary_to_hex(eblk)}"
+#puts "Decrypt Block: #{binary_to_hex(dblk)}"

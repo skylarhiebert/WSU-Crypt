@@ -1,0 +1,140 @@
+
+Array
+From Wikipedia, the free encyclopedia
+An array is a systematic arrangement of objects, usually in rows and columns. Specifically, it may refer to:
+Contents  [hide] 
+1 In computer science
+2 In mathematics and statistics
+3 In technology
+4 In astronomy
+5 In biology
+6 In music
+7 Other
+[edit]In computer science
+
+Generally, a collection of data items that can be selected by indices computed at run-time, including:
+Array data structure, an arrangement of items at equally spaced addresses in computer memory
+Array data type, used in a programming language to specify a variable that can be indexed
+Associative array, an abstract data structure model that generalizes arrays to arbitrary indices
+or various kinds of the above, such as
+Bit array or bit vector
+Dynamic array, allocated at run time
+Parallel array of records, with each field stored as a separate array
+Sparse array, with most elements omitted, to store a sparse matrix
+Variable-length array
+Jagged array, where the rows have different lengths individually
+or various related concepts:
+Array processor, a computer to process arrays of data (not to be confused with a processor array)
+Array programming, using matrix algebra notation in programs (not the same as array processing)
+Array slicing, the extraction of sub-arrays of an array
+or also:
+Global Arrays, a library for parallel processing
+Intel Array Visualizer, a piece of scientific graphics software
+[edit]In mathematics and statistics
+
+An array or matrix (mathematics) e.g. a Monge array, a Costas array
+A standard array in coding theory
+In statistics, arrays are a name for some kinds of Category:Experimental design
+Intersection array a concept of category theory
+The thinned array curse or sparse array curse, a theorem about electromagnetic waves
+[edit]In technology
+
+Various arrangements of multiple individual components to create a single system, such as:
+An antenna array, such as a phased array, a tower array, etc.
+A speaker array, used to produce directional Sound
+Asynchronous array of simple processors
+Ball grid array, pin grid array, and land grid array, ways to connect integrated circuits
+Cache Array Routing Protocol (CARP)
+Color filter array, placed over an imaging array
+Disk array, such as the RAID
+Field emitter array, an electron source
+Gate array, including a field-programmable gate array (FPGA)
+Halbach array, an arrangement of magnets
+Linear diode array used in image scanners
+Microphone array, such as a line array
+Microelectronic array for biological monitoring
+Parametric array of transducers
+Phased-array optics
+Photovoltaic array
+Processor array (not to be confused with an array processor)
+Programmable Array Logic (PAL), a systematic way to implement boolean functions.
+Reconfigurable datapath array, a flexible data processing architecture
+Staring array, an imaging sensor
+Systolic array, a hardware architecture
+Towed array sonar
+Wi-Fi array, a wireless networking device
+Video Graphics Array (VGA), a display adapter and video format, and many variants thereof (EVGA, FWVGA, QVGA, QXGA, SVGA, SXGA, SXGA+, TXGA, UVGA, XGA, XGA+, ...)
+ICL Distributed Array Processor, an array processor for the ICL
+and also
+Array gain, a telecommunications parameter
+Array processing of multichannel signals (not to be confused with array programming)
+[edit]In astronomy
+
+A telescope array, also called astronomical interferometer, such as the:
+Very Large Array (VLA) in New Mexico, USA
+Very Long Baseline Array (VLBA)
+Telescope Array Project
+Submillimeter Array (SMA)
+Atacama Large Millimeter Array (ALMA)
+CHARA array
+Square Kilometre Array (SKA)
+Allen Telescope Array (ATA), formerly known as the One Hectare Telescope (1hT)
+Very Small Array
+Interplanetary Scintillation Array (IPS array) also called the Pulsar Array
+Infrared Optical Telescope Array (IOTA)
+Sunyaev-Zel'dovich Array (SZA)
+Australia Telescope Compact Array
+Cherenkov Telescope Array (CTA)
+Akeno Giant Air Shower Array (AGASA)
+Murchison Widefield Array (MWA)
+Chicago Air Shower Array (CASA)
+Nuclear Spectroscopic Telescope Array (NuSTAR)
+4C Array
+Antarctic Muon And Neutrino Detector Array (AMANDA)
+LOFAR (LOw Frequency ARray)
+Modular Neutron Array (MoNA)
+[edit]In biology
+
+Various kinds of multiple biological assays called microarrays
+Visual feature array, a model for the visual cortex
+A group of certain types of animals, such as hedgehogs and eels
+[edit]In music
+
+An array in twelve-tone and serial composition is the presentation of two or more simultaneous twelve-tone sets in such a way that the sums of their horizontal segments form a (columnar) succession of twelve-tone aggregates
+Array system layout, on the array mbira
+Array mbira, a musical instrument
+Spiral array model, a music pitch space
+[edit]Other
+
+A Commission of Array, a commission for mustering a militia
+Array DVD magazine, focused on black actors and actresses
+ARRAY Magazine, about interior design
+Array Networks, a computer networking company
+	This disambiguation page lists articles associated with the same title.
+If an internal link led you here, you may wish to change the link to point directly to the intended article.
+Categories: Disambiguation pages
+Log in / create accountArticleTalkReadEditView history
+
+Main page
+Contents
+Featured content
+Current events
+Random article
+Donate to Wikipedia
+Interaction
+Help
+About Wikipedia
+Community portal
+Recent changes
+Contact Wikipedia
+Toolbox
+Print/export
+Languages
+Deutsch
+فارسی
+Polski
+This page was last modified on 25 January 2012 at 21:15.
+Text is available under the Creative Commons Attribution-ShareAlike License; additional terms may apply. See Terms of use for details.
+Wikipedia® is a registered trademark of the Wikimedia Foundation, Inc., a non-profit organization.
+Contact us
+Privacy policyAbout WikipediaDisclaimersMobile view 
