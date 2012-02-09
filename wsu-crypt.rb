@@ -63,8 +63,6 @@ end
 def whiten (text, key)
 	words = get_num_bits(text, 16)
 	wkeys = get_num_bits(key, 16)
-	#puts "#{words[0]}\t#{words[1]}\t#{words[2]}\t#{words[3]}"
-	#puts "#{wkeys[0]}\t#{wkeys[1]}\t#{wkeys[2]}\t#{wkeys[3]}"
 
 	rvals = Array.new
 	0.upto(3) do |i|
@@ -219,26 +217,33 @@ ARGV.size.times do |i|
 	key_file = ARGV[i] if i+1 == ARGV.size
 	encrypt = true	if ARGV[i] == "-e"  or ARGV[i] == "-E" or ARGV[i] == "--encrypt"
 	encrypt = false if ARGV[i] == "-d" or ARGV[i] == "-D" or ARGV[i] == "--decrypt"
-	hex_output = true if ARGV[i] == "-h" or ARGV[i] == "-x"
+	hex_output = true if encrypt and (ARGV[i] == "-h" or ARGV[i] == "-x")
 	$debug = true if ARGV[i] == "-v" or ARGV[i] == "--verbose" or ARGV[i] == "--debug"
 end
 #puts "encrypt:#{encrypt} debug:#{$debug} pt_file:#{pt_file} key_file:#{key_file}"
 
-plaintext = File.open(pt_file, 'rb') { |f| f.read }
+plaintext = File.open(pt_file, 'rb') { |f| f.read.unpack('B*') }
 keytext = File.open(key_file, 'rb') { |f| f.read }
 
-bin_ptx = plaintext.unpack('B*')
+bin_ptx = plaintext #plaintext.unpack('B*')
 bin_key = keytext.unpack('B64')
-theKeys = generate_encryption_keys(bin_key[0])
+encrypt_keys = generate_encryption_keys(bin_key[0])
+decrypt_keys = generate_decryption_keys(bin_key[0])
+
 #puts bin_ptx[0].size
 #puts bin_ptx[0].size / 64
+
 cipher = Array.new
 cipher[0] = ""
 0.upto(bin_ptx[0].size / 64 + 1) do |i|
 	blk = bin_ptx[0][i*64, 64] unless bin_ptx[0][i*64].nil?
 	unless blk.nil? 
 		blk << '0' until blk.size == 64
-		cipher[0] << encrypt_block(blk, bin_key[0], theKeys)
+		if encrypt
+			cipher[0] << encrypt_block(blk, bin_key[0], encrypt_keys)
+		else
+			cipher[0] << decrypt_block(blk, bin_key[0], decrypt_keys)
+		end
 	end
 	#puts blk
 	#puts binary_to_hex(bin_ptx[0][i*64, 64]) unless bin_ptx[0][i*64].nil?
@@ -248,12 +253,15 @@ end
 puts hex_output == true ? cipher.pack('B*').unpack('H*')[0] : cipher.pack('B*')
 #hex_output == true ? print binary_to_hex(cipher[0]) : print cipher.pack('B*')
 
+
 # str.pack('B*')[0] converts string to binary string
 # bstr.pack('B*') converts binary string to ascii
 # hstr.pack('B*').unpack('H*')[0] converts binary to hex characters
 
 key = "abcdef0123456789"
 plaintext = "0123456789abcdef"
+plaintext = plaintext.unpack('B*')[0]
+
 bkey = hex_to_binary(key) # Use for debugging
 #bkey = key.unpack('B64') # Use for generic code
 bpt = hex_to_binary(plaintext)
@@ -264,6 +272,21 @@ kbytes = get_num_bits(bkey, 8)
 ekeys = generate_encryption_keys(bkey)
 dkeys = generate_decryption_keys(bkey)
 
+=begin
+0.upto(bin_ptx[0].size / 64 + 1) do |i|
+	blk = plaintext[i*64, 64] unless plaintext[i*64].nil?
+	unless blk.nil? 
+		blk << '0' until blk.size == 64
+		if encrypt
+			cipher[0] << encrypt_block(blk, bkey, ekeys)
+		else
+			cipher[0] << decrypt_block(blk, bkey, dkeys)
+		end
+	end
+	#puts blk
+	#puts binary_to_hex(bin_ptx[0][i*64, 64]) unless bin_ptx[0][i*64].nil?
+end
+=end
 #puts dkeys#.pack("C*")
 
 # Print Key Table for debugging
