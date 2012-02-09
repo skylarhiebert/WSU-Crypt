@@ -1,5 +1,15 @@
 #!/usr/bin/env ruby
 
+=begin
+Copyright (c) 2012 Skylar Hiebert
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+=end
+
 def hex_to_binary(str)
 	bin = ""
 	str.chars do |c|
@@ -220,84 +230,30 @@ ARGV.size.times do |i|
 	hex_output = true if encrypt and (ARGV[i] == "-h" or ARGV[i] == "-x")
 	$debug = true if ARGV[i] == "-v" or ARGV[i] == "--verbose" or ARGV[i] == "--debug"
 end
-#puts "encrypt:#{encrypt} debug:#{$debug} pt_file:#{pt_file} key_file:#{key_file}"
 
-plaintext = File.open(pt_file, 'rb') { |f| f.read.unpack('B*') }
-keytext = File.open(key_file, 'rb') { |f| f.read }
+# Read input file text
+plaintext = File.open(pt_file, 'rb') { |f| f.read.unpack('B*')[0] }
+keytext = File.open(key_file, 'rb') { |f| f.read.unpack('B64')[0] }
 
-bin_ptx = plaintext #plaintext.unpack('B*')
-bin_key = keytext.unpack('B64')
-encrypt_keys = generate_encryption_keys(bin_key[0])
-decrypt_keys = generate_decryption_keys(bin_key[0])
+# Create encryption and decryption key schedules
+encrypt_keys = generate_encryption_keys(keytext)
+decrypt_keys = generate_decryption_keys(keytext)
 
-#puts bin_ptx[0].size
-#puts bin_ptx[0].size / 64
-
+# Run through blocks and encrypt to binary
 cipher = Array.new
 cipher[0] = ""
-0.upto(bin_ptx[0].size / 64 + 1) do |i|
-	blk = bin_ptx[0][i*64, 64] unless bin_ptx[0][i*64].nil?
-	unless blk.nil? 
-		blk << '0' until blk.size == 64
-		if encrypt
-			cipher[0] << encrypt_block(blk, bin_key[0], encrypt_keys)
-		else
-			cipher[0] << decrypt_block(blk, bin_key[0], decrypt_keys)
-		end
-	end
-	#puts blk
-	#puts binary_to_hex(bin_ptx[0][i*64, 64]) unless bin_ptx[0][i*64].nil?
-end
-
-#print cipher.pack('B*')
-puts hex_output == true ? cipher.pack('B*').unpack('H*')[0] : cipher.pack('B*')
-#hex_output == true ? print binary_to_hex(cipher[0]) : print cipher.pack('B*')
-
-
-# str.pack('B*')[0] converts string to binary string
-# bstr.pack('B*') converts binary string to ascii
-# hstr.pack('B*').unpack('H*')[0] converts binary to hex characters
-
-key = "abcdef0123456789"
-plaintext = "0123456789abcdef"
-plaintext = plaintext.unpack('B*')[0]
-
-bkey = hex_to_binary(key) # Use for debugging
-#bkey = key.unpack('B64') # Use for generic code
-bpt = hex_to_binary(plaintext)
-
-ekeys = Array.new
-dkeys = Array.new
-kbytes = get_num_bits(bkey, 8)
-ekeys = generate_encryption_keys(bkey)
-dkeys = generate_decryption_keys(bkey)
-
-=begin
-0.upto(bin_ptx[0].size / 64 + 1) do |i|
+0.upto(plaintext.size / 64 + 1) do |i|
 	blk = plaintext[i*64, 64] unless plaintext[i*64].nil?
 	unless blk.nil? 
 		blk << '0' until blk.size == 64
 		if encrypt
-			cipher[0] << encrypt_block(blk, bkey, ekeys)
+			cipher[0] << encrypt_block(blk, keytext, encrypt_keys)
 		else
-			cipher[0] << decrypt_block(blk, bkey, dkeys)
+			cipher[0] << decrypt_block(blk, keytext, decrypt_keys)
 		end
 	end
-	#puts blk
-	#puts binary_to_hex(bin_ptx[0][i*64, 64]) unless bin_ptx[0][i*64].nil?
 end
-=end
-#puts dkeys#.pack("C*")
 
-# Print Key Table for debugging
-#0.upto(15) do |i|
-#	0.upto(11) do |j|
-#		index = i*12 + j
-#		print "#{ekeys[index].to_i(2).to_s(16)}:#{dkeys[index].to_i(2).to_s(16)}\t"
-#	end
-#	print "\n"
-#end
-eblk = encrypt_block(bpt, bkey, ekeys)
-dblk = decrypt_block(eblk, bkey, dkeys)
-#puts "Encrypt Block: #{binary_to_hex(eblk)}"
-#puts "Decrypt Block: #{binary_to_hex(dblk)}"
+# Send encrypted output to stdout in hex or binary
+puts hex_output == true ? cipher.pack('B*').unpack('H*')[0] : cipher.pack('B*')
+
