@@ -42,27 +42,35 @@ def right_shift(bstr)
 	bstr.slice(bstr.size - 1, 1) + bstr.slice(0, bstr.size - 1)
 end
 
+# 192 keys in 64-bit, 384 in 128-bit
 def generate_encryption_keys(key)
 	keys = Array.new
 	kp = key
-	0.upto(191) do |index|
+	id = key.size*3/16 # Pre-Cache
+	
+	p "id: #{id} - upto(#{key.size*3}) - key.size/8:#{key.size/8}" if $debug
+	0.upto(key.size*3 - 1) do |index|
 		kp = left_shift(kp) # left rotate
 		skeys = get_num_bits(kp, 8) # .reverse for other subkey schedule
-		byte = (4 * (index / 12) + (index % 4)) % 8
+		byte = (4 * (index / id) + (index % 4)) % (key.size/8)
+		#byte = (4 * (index / 24) + (index % 4) % 16
 		keys[index] = skeys[byte]
 	end
 	return keys
 end
 
+# 192 keys in 64-bit, 384 in 128-bit
 def generate_decryption_keys(key)
 	keys = Array.new
 	kp = key
-
-	0.upto(191) do |index|
+	id = key.size*3/16 # Pre-Cache
+	p "id: #{id} - upto(#{key.size*3}) - key.size/8:#{key.size/8}" if $debug
+	0.upto(key.size*3 - 1) do |index|
 		skeys = get_num_bits(kp, 8).reverse # Opposite of encryption
-		byte = (4 * (index / 12) + (index % 4)) % 8
+		byte = (4 * (index / id) + (index % 4)) % (key.size/8)
+		#byte = (4 * (index / 24) + (index % 4)) % 16
 		# Slot is to reverse 12 keys (11 downto 0, then 23 downto 12)
-		slot = (12 * (index/12 + 1) - 1) - index % 12
+		slot = (id * (index/id + 1) - 1) - index % id
 		# Reverse Key Ordering, 
 		keys[slot] = skeys[byte] 
 		kp = right_shift(kp)
@@ -70,36 +78,68 @@ def generate_decryption_keys(key)
 	return keys
 end	
 
+# 4 Words in 64-bit, 8 Words in 128-bit
 def whiten (text, key)
 	words = get_num_bits(text, 16)
 	wkeys = get_num_bits(key, 16)
-
+	
 	rvals = Array.new
-	0.upto(3) do |i|
+	0.upto(words.size - 1) do |i|
 		rvals[i] = (words[i].to_i(2) ^ wkeys[i].to_i(2)).to_s(2)
 		rvals[i].insert(0, '0') until rvals[i].size == 16
 	end
 
+	p "whiten: #{rvals}" if $debug
+
 	return rvals
 end
 
-def F (r0, r1, round, ekeys)
-	t0 = G(r0, ekeys[round*12], ekeys[round*12+1], 
-			 ekeys[round*12+2], ekeys[round*12+3], round)
-	t1 = G(r1, ekeys[round*12+4], ekeys[round*12+5],
-			 ekeys[round*12+6], ekeys[round*12+7], round)
-	f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*12+8] + ekeys[round*12+9]).to_i(2)) % 2**16
-	f0 = f0.to_s(2)
-	f0.insert(0, '0') until f0.size == 16
-	f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*12+10] + ekeys[round*12+11]).to_i(2)) % 2**16
-	f1 = f1.to_s(2)
-	f1.insert(0, '0') until f1.size == 16
+# Needs T2, T3, F2, F3
+def F (rvals, round, ekeys)
+	if $block_size == 128
+		t0 = G(rvals[0], ekeys[round*24], ekeys[round*24+1], 
+				 ekeys[round*24+2], ekeys[round*24+3], round)
+		t1 = G(rvals[1], ekeys[round*24+4], ekeys[round*24+5],
+				 ekeys[round*24+6], ekeys[round*24+7], round)
+		f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*24+8] + ekeys[round*24+9]).to_i(2)) % 2**16
+		f0 = f0.to_s(2)
+		f0.insert(0, '0') until f0.size == 16
+		f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*24+10] + ekeys[round*24+11]).to_i(2)) % 2**16
+		f1 = f1.to_s(2)
+		f1.insert(0, '0') until f1.size == 16
+
+		p "round*24+12 to +23= #{round*24+12} - #{round*24+23}" if $debug
+		t2 = G(rvals[2], ekeys[round*24+12], ekeys[round*24+13], 
+				 ekeys[round*24+14], ekeys[round*24+15], round)
+		t3 = G(rvals[3], ekeys[round*24+16], ekeys[round*24+17],
+				 ekeys[round*24+18], ekeys[round*24+19], round)
+		f2 = (t2.to_i(2) + 2*t3.to_i(2) + (ekeys[round*24+20] + ekeys[round*24+21]).to_i(2)) % 2**16
+		f2 = f2.to_s(2)
+		f2.insert(0, '0') until f2.size == 16
+		f3 = (2*t2.to_i(2) + t3.to_i(2) + (ekeys[round*24+22] + ekeys[round*24+23]).to_i(2)) % 2**16
+		f3 = f3.to_s(2)
+		f3.insert(0, '0') until f3.size == 16
+	else
+		t0 = G(rvals[0], ekeys[round*12], ekeys[round*12+1], 
+				 ekeys[round*12+2], ekeys[round*12+3], round)
+		t1 = G(rvals[1], ekeys[round*12+4], ekeys[round*12+5],
+				 ekeys[round*12+6], ekeys[round*12+7], round)
+		f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*12+8] + ekeys[round*12+9]).to_i(2)) % 2**16
+		f0 = f0.to_s(2)
+		f0.insert(0, '0') until f0.size == 16
+		f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*12+10] + ekeys[round*12+11]).to_i(2)) % 2**16
+		f1 = f1.to_s(2)
+		f1.insert(0, '0') until f1.size == 16
+	end
 
 	puts "Round #{round} : t0:#{binary_to_hex(t0)} \t t1:#{binary_to_hex(t1)} \t f0:#{binary_to_hex(f0)} \t f1:#{binary_to_hex(f1)}" if $debug
+	puts "Round #{round} : t2:#{binary_to_hex(t2)} \t t3:#{binary_to_hex(t3)} \t f2:#{binary_to_hex(f2)} \t f3:#{binary_to_hex(f3)}" if $debug and $block_size == 128
 
+	return f0, f1, f2, f3 if $block_size == 128
 	return f0, f1
 end
 
+# Not Edited for change from 64-bit to 128-bit
 def G (r0, k0, k1, k2, k3, round)
 	fTable = [0xa3,0xd7,0x09,0x83,0xf8,0x48,0xf6,0xf4,0xb3,0x21,0x15,0x78,0x99,0xb1,0xaf,0xf9,
 		0xe7,0x2d,0x4d,0x8a,0xce,0x4c,0xca,0x2e,0x52,0x95,0xd9,0x1e,0x4e,0x38,0x44,0x28,
@@ -123,6 +163,7 @@ def G (r0, k0, k1, k2, k3, round)
 	g[1] = r0[8, 8]
 	g[2] = (fTable[g[1].to_i(2) ^ k0.to_i(2)] ^ g[0].to_i(2)).to_s(2)
 	g[2].insert(0, '0') until g[2].size == 8
+	p "Nil error #{g[2]} : #{k1}" if g[2].nil? or k1.nil?
 	g[3] = (fTable[g[2].to_i(2) ^ k1.to_i(2)] ^ g[1].to_i(2)).to_s(2)
 	g[3].insert(0, '0') until g[3].size == 8
 	g[4] = (fTable[g[3].to_i(2) ^ k2.to_i(2)] ^ g[2].to_i(2)).to_s(2)
@@ -140,7 +181,9 @@ def encrypt_block(blk, encrypt_key, key_schedule)
 
 	# Start 16 rounds
 	0.upto(15) do |round|
-		fvals = F(rvals[0], rvals[1], round, key_schedule)
+		fvals = F(rvals, round, key_schedule)
+
+		p "fvals.size:#{fvals.size} - rvals.size:#{rvals.size}" if $debug
 
 		# R2 xor F0, right-rotate by 1 bit -> R0
 		xor = (rvals[2].to_i(2) ^ fvals[0].to_i(2)).to_s(2)
@@ -156,19 +199,22 @@ def encrypt_block(blk, encrypt_key, key_schedule)
 		rvals[3] = rvals[1]
 		rvals[0] = nr0
 		rvals[1] = nr1
+		#p "block: #{binary_to_hex(rvals.inject(:+))}" if $debug
 	end
 
-	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] # Undo last swap
-
+	#y = rvals.inject(:+) # Concatenate all rval binary strings
+	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] if $block_size == 64
+	#p "y:#{y} - rvals:#{rvals}"
 	return whiten(y, encrypt_key).join # Whiten output and join to 64-bit string
 end
 
 def decrypt_block(blk, decrypt_key, key_schedule)
 	rvals = whiten(blk, decrypt_key) # Whiten input
-
+	
+	p "After Whiten 1: #{binary_to_hex(rvals.join)}" if $debug
 	# Start 16 rounds
 	0.upto(15) do |round|
-		fvals = F(rvals[0], rvals[1], round, key_schedule)
+		fvals = F(rvals, round, key_schedule)
 
 		# R2 rotate-left by 1 bit -> R2', R2' xor F0 -> R0
 		nr0 = (left_shift(rvals[2]).to_i(2) ^ fvals[0].to_i(2)).to_s(2)
@@ -184,9 +230,12 @@ def decrypt_block(blk, decrypt_key, key_schedule)
 		rvals[3] = rvals[1]
 		rvals[0] = nr0
 		rvals[1] = nr1
+		p "block: #{binary_to_hex(rvals.inject(:+))}" if $debug
 	end
+	
+	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] if $block_size == 64
 
-	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] # Undo last swap
+	#y = rvals.inject(:+) # Concatenate all rval binary strings
 
 	return whiten(y, decrypt_key).join # Whiten output and join to 64-bit string
 end
@@ -198,7 +247,7 @@ def print_usage
 	print "\n\n\t-e, -E, --encrypt\tEncrypt FILE1 with key FILE2"
 	print "\n\t-d, -D, --decrypt\tDecrypt FILE1 with key FILE2"
 	print "\n\t-h, -x\t\t\tOutput text to hexidecimal representations"
-	print "\n\t-v, --verbose, --debug\tDisplay debug text to stdout"
+	#print "\n\t-v, --verbose, --debug\tDisplay debug text to stdout"
 	print "\n\t--help\t\t\tDisplay this help and exit"
 	print "\n\t--version\t\tOutput version information end exit"
 	print "\n\nExamples:\n\twsu-crypt -v -e plaintextfile keyfile"
@@ -212,6 +261,9 @@ encrypt = true
 pt_file = nil
 key_file = nil
 hex_output = false
+keytext = ""
+plaintext = ""
+$block_size = nil
 
 # Parse Command Line Parameters
 if ARGV.size < 2
@@ -227,38 +279,55 @@ ARGV.size.times do |i|
 	key_file = ARGV[i] if i+1 == ARGV.size
 	encrypt = true	if ARGV[i] == "-e"  or ARGV[i] == "-E" or ARGV[i] == "--encrypt"
 	encrypt = false if ARGV[i] == "-d" or ARGV[i] == "-D" or ARGV[i] == "--decrypt"
+	$block_size = 64 and encrypt = true if ARGV[i] == "-e64"
+	$block_size = 128 and encrypt = true if ARGV[i] == "-e128"
+	$block_size = 64 and encrypt = false if ARGV[i] == "-d64"
+	$block_size = 128 and encrypt = false if ARGV[i] == "-d128"
 	hex_output = true if encrypt and (ARGV[i] == "-h" or ARGV[i] == "-x")
 	$debug = true if ARGV[i] == "-v" or ARGV[i] == "--verbose" or ARGV[i] == "--debug"
 end
 
 # Read input file text
 plaintext = File.open(pt_file, 'rb') { |f| f.read.unpack('B*')[0] }
-keytext = File.open(key_file, 'rb') { |f| f.read.unpack('B128')[0] }
-keys = get_num_bits(keytext, 64)
+keytext = File.open(key_file, 'rb') { |f| f.read.unpack('B128')[0] } unless $block_size == 64
+keytext = File.open(key_file, 'rb') { |f| f.read.unpack('B64')[0] } if keytext.size < 128
+#keytext = hex_to_binary("abcdef0123456789") #if $debug # 64-bit
+#keytext = hex_to_binary("1234567890abcdeffedcba0987654321") if $debug # 128-bit
+#plaintext = hex_to_binary("0123456789abcdef") #if $debug
+#plaintext = "0123456789abcdeffedcba9876543210" if $debug
+$block_size = keytext.size if $block_size.nil?
 
 # Create encryption and decryption key schedules
-encrypt_keys_top = generate_encryption_keys(keys[0])
-encrypt_keys_bottom = generate_encryption_keys(keys[1])
-decrypt_keys_top = generate_decryption_keys(keys[0])
-decrypt_keys_bottom = generate_decryption_keys(keys[1])
+encrypt_keys = generate_encryption_keys(keytext)
+decrypt_keys = generate_decryption_keys(keytext)
+
+p "encrypt_keys.size: #{encrypt_keys.size} - decrypt_keys.size:#{decrypt_keys.size}" if $debug
 
 # Run through blocks and encrypt to binary
 cipher = Array.new
 cipher[0] = ""
-0.upto(plaintext.size / 128 + 1) do |i|
-	next if plaintext[i*128].nil?
-	blk = plaintext[i*128, 128] 
-	blk << '0' until blk.size == 128 # Pad block until 128 bits in size
-	blk1 = blk[0, 64] 
-	blk2 = blk[64, 64] 
+0.upto(plaintext.size / $block_size) do |i|
+	next if plaintext[i*$block_size].nil?
+	blk = plaintext[i*$block_size, $block_size] 
+	blk << '0' until blk.size == $block_size # Pad block until 64-bits or 128-bits in size
 	unless blk.nil? 
 		if encrypt
-			cipher[0] << encrypt_block(blk1, keys[0], encrypt_keys_top)
-			cipher[0] << encrypt_block(blk2, keys[1], encrypt_keys_bottom)
+			p binary_to_hex(encrypt_block(blk, keytext, encrypt_keys)) if $debug
+			cipher[0] << encrypt_block(blk, keytext, encrypt_keys) unless $debug
 		else
-			cipher[0] << decrypt_block(blk1, keys[0], decrypt_keys_top)
-			cipher[0] << decrypt_block(blk2, keys[1], decrypt_keys_bottom)
+			p "Final:#{binary_to_hex(decrypt_block(blk, keytext, decrypt_keys))}" if $debug
+			cipher[0] << decrypt_block(blk, keytext, decrypt_keys) unless $debug
 		end
+	end
+end
+
+if $debug
+	0.upto(15) do |i|
+		0.upto($block_size < 128 ? 11 : 23) do |j|
+			index = i*($block_size < 128 ? 12 : 24) + j
+			print "#{encrypt_keys[index].to_i(2).to_s(16)}:#{decrypt_keys[index].to_i(2).to_s(16)}\t"
+		end
+		print "\n"
 	end
 end
 

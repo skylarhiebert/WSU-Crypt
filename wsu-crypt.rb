@@ -242,7 +242,7 @@ decrypt_keys = generate_decryption_keys(keytext)
 # Run through blocks and encrypt to binary
 cipher = Array.new
 cipher[0] = ""
-0.upto(plaintext.size / 64 + 1) do |i|
+0.upto(plaintext.size / 64) do |i|
 	blk = plaintext[i*64, 64] unless plaintext[i*64].nil?
 	unless blk.nil? 
 		blk << '0' until blk.size == 64
