@@ -47,7 +47,7 @@ def generate_encryption_keys(key)
 	keys = Array.new
 	kp = key
 	id = key.size*3/16 # Pre-Cache
-	
+
 	p "id: #{id} - upto(#{key.size*3}) - key.size/8:#{key.size/8}" if $debug
 	0.upto(key.size*3 - 1) do |index|
 		kp = left_shift(kp) # left rotate
@@ -82,7 +82,7 @@ end
 def whiten (text, key)
 	words = get_num_bits(text, 16)
 	wkeys = get_num_bits(key, 16)
-	
+
 	rvals = Array.new
 	0.upto(words.size - 1) do |i|
 		rvals[i] = (words[i].to_i(2) ^ wkeys[i].to_i(2)).to_s(2)
@@ -200,17 +200,36 @@ def encrypt_block(blk, encrypt_key, key_schedule)
 		rvals[0] = nr0
 		rvals[1] = nr1
 		#p "block: #{binary_to_hex(rvals.inject(:+))}" if $debug
+
+		# Need to perform similar shifts on second half
+		if $block_size == 128
+			# R2 xor F0, right-rotate by 1 bit -> R0
+			xor = (rvals[6].to_i(2) ^ fvals[2].to_i(2)).to_s(2)
+			xor.insert(0, '0') until xor.size == 16
+			nr2 = right_shift(xor)
+
+			# R3 rotate-left by 1 bit -> R3', R3' xor F1 -> R1
+			nr3 = (left_shift(rvals[7]).to_i(2) ^ fvals[3].to_i(2)).to_s(2)
+			nr3.insert(0, '0') until nr3.size == 16
+
+			# Swap values around
+			rvals[6] = rvals[4]
+			rvals[7] = rvals[5]
+			rvals[4] = nr2
+			rvals[5] = nr3
+		end
 	end
 
 	#y = rvals.inject(:+) # Concatenate all rval binary strings
-	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] if $block_size == 64
+	y = rvals[2] + rvals[3] + rvals[0] + rvals[1]
+	y += rvals[6] + rvals[7] + rvals[4] + rvals[5] if $block_size == 128
 	#p "y:#{y} - rvals:#{rvals}"
 	return whiten(y, encrypt_key).join # Whiten output and join to 64-bit string
 end
 
 def decrypt_block(blk, decrypt_key, key_schedule)
 	rvals = whiten(blk, decrypt_key) # Whiten input
-	
+
 	p "After Whiten 1: #{binary_to_hex(rvals.join)}" if $debug
 	# Start 16 rounds
 	0.upto(15) do |round|
@@ -230,10 +249,28 @@ def decrypt_block(blk, decrypt_key, key_schedule)
 		rvals[3] = rvals[1]
 		rvals[0] = nr0
 		rvals[1] = nr1
+
+		if $block_size == 128
+			# R2 rotate-left by 1 bit -> R2', R2' xor F0 -> R0
+			nr2 = (left_shift(rvals[6]).to_i(2) ^ fvals[2].to_i(2)).to_s(2)
+			nr2.insert(0, '0') until nr2.size == 16
+
+			# R3 xor F1, right-rotate by 1 bit -> R1
+			xor = (rvals[7].to_i(2) ^ fvals[3].to_i(2)).to_s(2)
+			xor.insert(0, '0') until xor.size == 16
+			nr3 = right_shift(xor)
+
+			# Swap values around
+			rvals[6] = rvals[4]
+			rvals[7] = rvals[5]
+			rvals[4] = nr2
+			rvals[5] = nr3
+		end
 		p "block: #{binary_to_hex(rvals.inject(:+))}" if $debug
 	end
-	
-	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] if $block_size == 64
+
+	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] 
+	y += rvals[6] + rvals[7] + rvals[4] + rvals[5] if $block_size == 128
 
 	#y = rvals.inject(:+) # Concatenate all rval binary strings
 
