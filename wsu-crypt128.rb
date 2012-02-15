@@ -46,14 +46,11 @@ end
 def generate_encryption_keys(key)
 	keys = Array.new
 	kp = key
-	id = key.size*3/16 # Pre-Cache
 	
-	p "id: #{id} - upto(#{key.size*3}) - key.size/8:#{key.size/8}" if $debug
-	0.upto(key.size*3 - 1) do |index|
+	0.upto(191) do |index|
 		kp = left_shift(kp) # left rotate
-		skeys = get_num_bits(kp, 8) # .reverse for other subkey schedule
-		byte = (4 * (index / id) + (index % 4)) % (key.size/8)
-		#byte = (4 * (index / 24) + (index % 4) % 16
+		skeys = get_num_bits(kp, key.size/8) # .reverse for other subkey schedule
+		byte = (4 * (index / 12) + (index % 4)) % 8
 		keys[index] = skeys[byte]
 	end
 	return keys
@@ -63,14 +60,12 @@ end
 def generate_decryption_keys(key)
 	keys = Array.new
 	kp = key
-	id = key.size*3/16 # Pre-Cache
-	p "id: #{id} - upto(#{key.size*3}) - key.size/8:#{key.size/8}" if $debug
-	0.upto(key.size*3 - 1) do |index|
-		skeys = get_num_bits(kp, 8).reverse # Opposite of encryption
-		byte = (4 * (index / id) + (index % 4)) % (key.size/8)
-		#byte = (4 * (index / 24) + (index % 4)) % 16
+	
+	0.upto(192) do |index|
+		skeys = get_num_bits(kp, key.size/8).reverse # Opposite of encryption
+		byte = (4 * (index / 12) + (index % 4)) % /8
 		# Slot is to reverse 12 keys (11 downto 0, then 23 downto 12)
-		slot = (id * (index/id + 1) - 1) - index % id
+		slot = (12 * (index/12 + 1) - 1) - index % 12
 		# Reverse Key Ordering, 
 		keys[slot] = skeys[byte] 
 		kp = right_shift(kp)
@@ -80,13 +75,13 @@ end
 
 # 4 Words in 64-bit, 8 Words in 128-bit
 def whiten (text, key)
-	words = get_num_bits(text, 16)
-	wkeys = get_num_bits(key, 16)
+	words = get_num_bits(text, key.size/4)
+	wkeys = get_num_bits(key, key.size/4)
 	
 	rvals = Array.new
 	0.upto(words.size - 1) do |i|
 		rvals[i] = (words[i].to_i(2) ^ wkeys[i].to_i(2)).to_s(2)
-		rvals[i].insert(0, '0') until rvals[i].size == 16
+		rvals[i].insert(0, '0') until rvals[i].size == key.size/4
 	end
 
 	p "whiten: #{rvals}" if $debug
@@ -96,46 +91,20 @@ end
 
 # Needs T2, T3, F2, F3
 def F (rvals, round, ekeys)
-	if $block_size == 128
-		t0 = G(rvals[0], ekeys[round*24], ekeys[round*24+1], 
-				 ekeys[round*24+2], ekeys[round*24+3], round)
-		t1 = G(rvals[1], ekeys[round*24+4], ekeys[round*24+5],
-				 ekeys[round*24+6], ekeys[round*24+7], round)
-		f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*24+8] + ekeys[round*24+9]).to_i(2)) % 2**16
-		f0 = f0.to_s(2)
-		f0.insert(0, '0') until f0.size == 16
-		f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*24+10] + ekeys[round*24+11]).to_i(2)) % 2**16
-		f1 = f1.to_s(2)
-		f1.insert(0, '0') until f1.size == 16
-
-		p "round*24+12 to +23= #{round*24+12} - #{round*24+23}" if $debug
-		t2 = G(rvals[2], ekeys[round*24+12], ekeys[round*24+13], 
-				 ekeys[round*24+14], ekeys[round*24+15], round)
-		t3 = G(rvals[3], ekeys[round*24+16], ekeys[round*24+17],
-				 ekeys[round*24+18], ekeys[round*24+19], round)
-		f2 = (t2.to_i(2) + 2*t3.to_i(2) + (ekeys[round*24+20] + ekeys[round*24+21]).to_i(2)) % 2**16
-		f2 = f2.to_s(2)
-		f2.insert(0, '0') until f2.size == 16
-		f3 = (2*t2.to_i(2) + t3.to_i(2) + (ekeys[round*24+22] + ekeys[round*24+23]).to_i(2)) % 2**16
-		f3 = f3.to_s(2)
-		f3.insert(0, '0') until f3.size == 16
-	else
+	keysize = ekeys[0].size * 2
 		t0 = G(rvals[0], ekeys[round*12], ekeys[round*12+1], 
 				 ekeys[round*12+2], ekeys[round*12+3], round)
 		t1 = G(rvals[1], ekeys[round*12+4], ekeys[round*12+5],
 				 ekeys[round*12+6], ekeys[round*12+7], round)
-		f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*12+8] + ekeys[round*12+9]).to_i(2)) % 2**16
+		f0 = (t0.to_i(2) + 2*t1.to_i(2) + (ekeys[round*12+8] + ekeys[round*12+9]).to_i(2)) % 2**keysize
 		f0 = f0.to_s(2)
-		f0.insert(0, '0') until f0.size == 16
-		f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*12+10] + ekeys[round*12+11]).to_i(2)) % 2**16
+		f0.insert(0, '0') until f0.size == keysize
+		f1 = (2*t0.to_i(2) + t1.to_i(2) + (ekeys[round*12+10] + ekeys[round*12+11]).to_i(2)) % 2**keysize
 		f1 = f1.to_s(2)
-		f1.insert(0, '0') until f1.size == 16
-	end
+		f1.insert(0, '0') until f1.size == keysize
 
 	puts "Round #{round} : t0:#{binary_to_hex(t0)} \t t1:#{binary_to_hex(t1)} \t f0:#{binary_to_hex(f0)} \t f1:#{binary_to_hex(f1)}" if $debug
-	puts "Round #{round} : t2:#{binary_to_hex(t2)} \t t3:#{binary_to_hex(t3)} \t f2:#{binary_to_hex(f2)} \t f3:#{binary_to_hex(f3)}" if $debug and $block_size == 128
 
-	return f0, f1, f2, f3 if $block_size == 128
 	return f0, f1
 end
 
@@ -158,18 +127,46 @@ def G (r0, k0, k1, k2, k3, round)
 		0x08,0x77,0x11,0xbe,0x92,0x4f,0x24,0xc5,0x32,0x36,0x9d,0xcf,0xf3,0xa6,0xbb,0xac,
 		0x5e,0x6c,0xa9,0x13,0x57,0x25,0xb5,0xe3,0xbd,0xa8,0x3a,0x01,0x05,0x59,0x2a,0x46]
 
+	strsize = r0.size/4
 	g = Array.new
-	g[0] = r0[0, 8]
-	g[1] = r0[8, 8]
-	g[2] = (fTable[g[1].to_i(2) ^ k0.to_i(2)] ^ g[0].to_i(2)).to_s(2)
-	g[2].insert(0, '0') until g[2].size == 8
-	p "Nil error #{g[2]} : #{k1}" if g[2].nil? or k1.nil?
-	g[3] = (fTable[g[2].to_i(2) ^ k1.to_i(2)] ^ g[1].to_i(2)).to_s(2)
-	g[3].insert(0, '0') until g[3].size == 8
-	g[4] = (fTable[g[3].to_i(2) ^ k2.to_i(2)] ^ g[2].to_i(2)).to_s(2)
-	g[4].insert(0, '0') until g[4].size == 8
-	g[5] = (fTable[g[4].to_i(2) ^ k3.to_i(2)] ^ g[3].to_i(2)).to_s(2)
-	g[5].insert(0, '0') until g[5].size == 8
+	g[0] = r0[0, r0.strsize]
+	g[1] = r0[strsize, strsize]
+	fxor = get_num_bits((g[1].to_i(2) ^ k0.to_i(2)).to_s(2))
+	fstr = ""
+	if fxor.size > 1
+		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k0.to_i(2)].to_s(2) }
+	else
+		fstr = fTable[fxor[0].to_i(2) ^ k0.to_i(2)].to_s(2)
+	end
+	g[2] = (fstr.to_i(2) ^ g[0].to_i(2)).to_s(2)
+	g[2].insert(0, '0') until g[2].size == strsize
+	fstr = ""
+	fxor = get_num_bits((g[2].to_i(2) ^ k1.to_i(2)).to_s(2))
+	if fxor.size > 1
+		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k1.to_i(2)].to_s(2) }
+	else
+		fstr = fTable[fxor[0].to_i(2) ^ k1.to_i(2)].to_s(2)
+	end
+	g[3] = (fstr.to_i(2) ^ g[1].to_i(2)).to_s(2)
+	g[3].insert(0, '0') until g[3].size == strsize
+	fstr = ""
+	fxor = get_num_bits((g[3].to_i(2) ^ k2.to_i(2)).to_s(2))
+	if fxor.size > 1
+		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k2.to_i(2)].to_s(2) }
+	else
+		fstr = fTable[fxor[0].to_i(2) ^ k2.to_i(2)].to_s(2)
+	end
+	g[4] = (fstr.to_i(2) ^ g[3].to_i(2)).to_s(2)
+	g[4].insert(0, '0') until g[4].size == strsize
+	fstr = ""
+	fxor = get_num_bits((g[4].to_i(2) ^ k3.to_i(2)).to_s(2))
+	if fxor.size > 1
+		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k3.to_i(2)].to_s(2) }
+	else
+		fstr = fTable[fxor[0].to_i(2) ^ k3.to_i(2)].to_s(2)
+	end
+	g[5] = (fstr.to_i(2) ^ g[3].to_i(2)).to_s(2)
+	g[5].insert(0, '0') until g[5].size == strsize
 	print "Round #{round} : " if $debug
 	0.upto(g.size - 1) {|i| print "g#{i}:#{g[i].to_i(2).to_s(16)}\t" } if $debug
 	print "\n" if $debug
@@ -199,12 +196,10 @@ def encrypt_block(blk, encrypt_key, key_schedule)
 		rvals[3] = rvals[1]
 		rvals[0] = nr0
 		rvals[1] = nr1
-		#p "block: #{binary_to_hex(rvals.inject(:+))}" if $debug
 	end
 
-	#y = rvals.inject(:+) # Concatenate all rval binary strings
 	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] if $block_size == 64
-	#p "y:#{y} - rvals:#{rvals}"
+	
 	return whiten(y, encrypt_key).join # Whiten output and join to 64-bit string
 end
 
@@ -230,12 +225,9 @@ def decrypt_block(blk, decrypt_key, key_schedule)
 		rvals[3] = rvals[1]
 		rvals[0] = nr0
 		rvals[1] = nr1
-		p "block: #{binary_to_hex(rvals.inject(:+))}" if $debug
 	end
 	
 	y = rvals[2] + rvals[3] + rvals[0] + rvals[1] if $block_size == 64
-
-	#y = rvals.inject(:+) # Concatenate all rval binary strings
 
 	return whiten(y, decrypt_key).join # Whiten output and join to 64-bit string
 end
