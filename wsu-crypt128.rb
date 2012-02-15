@@ -108,7 +108,7 @@ def F (rvals, round, ekeys)
 	return f0, f1
 end
 
-def fTable_sub (r0, k0, k1, k2, k3, round)
+def fTable_sub (str, key)
 	fTable = [0xa3,0xd7,0x09,0x83,0xf8,0x48,0xf6,0xf4,0xb3,0x21,0x15,0x78,0x99,0xb1,0xaf,0xf9,
 		0xe7,0x2d,0x4d,0x8a,0xce,0x4c,0xca,0x2e,0x52,0x95,0xd9,0x1e,0x4e,0x38,0x44,0x28,
 		0x0a,0xdf,0x02,0xa0,0x17,0xf1,0x60,0x68,0x12,0xb7,0x7a,0xc3,0xe9,0xfa,0x3d,0x53,
@@ -126,6 +126,12 @@ def fTable_sub (r0, k0, k1, k2, k3, round)
 		0x08,0x77,0x11,0xbe,0x92,0x4f,0x24,0xc5,0x32,0x36,0x9d,0xcf,0xf3,0xa6,0xbb,0xac,
 		0x5e,0x6c,0xa9,0x13,0x57,0x25,0xb5,0xe3,0xbd,0xa8,0x3a,0x01,0x05,0x59,0x2a,0x46]
 
+	fxor = get_num_bits((g[4].to_i(2) ^ k3.to_i(2)).to_s(2), 8)
+	if fxor.size > 1
+		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k3.to_i(2)].to_s(2) }
+	else
+		fstr = fTable[fxor[0].to_i(2) ^ k3.to_i(2)].to_s(2)
+	end
 end
 
 # Not Edited for change from 64-bit to 128-bit
@@ -167,7 +173,7 @@ def G (r0, k0, k1, k2, k3, round)
 	g[2] = (fstr.to_i(2) ^ g[0].to_i(2)).to_s(2)
 	g[2].insert(0, '0') until g[2].size == strsize
 	fstr = ""
-	fxor = get_num_bits((g[2].to_i(2) ^ k1.to_i(2)).to_s(2))
+	fxor = get_num_bits((g[2].to_i(2) ^ k1.to_i(2)).to_s(2), 8)
 	if fxor.size > 1
 		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k1.to_i(2)].to_s(2) }
 	else
@@ -176,7 +182,7 @@ def G (r0, k0, k1, k2, k3, round)
 	g[3] = (fstr.to_i(2) ^ g[1].to_i(2)).to_s(2)
 	g[3].insert(0, '0') until g[3].size == strsize
 	fstr = ""
-	fxor = get_num_bits((g[3].to_i(2) ^ k2.to_i(2)).to_s(2))
+	fxor = get_num_bits((g[3].to_i(2) ^ k2.to_i(2)).to_s(2), 8)
 	if fxor.size > 1
 		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k2.to_i(2)].to_s(2) }
 	else
@@ -185,7 +191,7 @@ def G (r0, k0, k1, k2, k3, round)
 	g[4] = (fstr.to_i(2) ^ g[3].to_i(2)).to_s(2)
 	g[4].insert(0, '0') until g[4].size == strsize
 	fstr = ""
-	fxor = get_num_bits((g[4].to_i(2) ^ k3.to_i(2)).to_s(2))
+	fxor = get_num_bits((g[4].to_i(2) ^ k3.to_i(2)).to_s(2), 8)
 	if fxor.size > 1
 		fxor.each { |f| fstr += fTable[f.to_i(2) ^ k3.to_i(2)].to_s(2) }
 	else
