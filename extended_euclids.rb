@@ -1,16 +1,21 @@
 #!/usr/bin/env ruby
 
 # http://en.wikipedia.org/wiki/Extended_Euclidean_algorithm
-def extended_gcd(a, b) 
+def extended_euclid(a, b) 
 	return -1, 0 if b == 0 and a < 0 
 	return 1, 0 if b == 0 and a > 0
 	
 	q = a / b
 	r = a % b
-	st = extended_gcd(b, r)
+	st = extended_euclid(b, r)
 	v = st[0] - q * st[1]
 	
 	return st[1], v
+end
+
+def euclid(a, b)
+	return a if b == 0
+	return euclid(b, a % b)
 end
 
 # http://en.wikipedia.org/wiki/Extended_Euclidean_algorithm
@@ -28,4 +33,18 @@ def get_multiplicative_inverse
 	# inverse := auxiliary[i]
 end	
 
-p extended_gcd(120, 23)
+#p extended_euclid(120, 23)
+#p extended_euclid(60, 24)
+#p extended_euclid(60, -24)
+#p extended_euclid(-60, 24)
+#p extended_euclid(-60, -24)
+
+if ARGV[0].nil? or ARGV[1].nil?
+	p "Usage: extended_euclids a b"
+	exit
+end
+
+a = ARGV[0].to_i
+b = ARGV[1].to_i
+puts "GCD(#{a}, #{b}): #{euclid(a, b)}"
+puts "Extended Euclid(#{a}, #{b}): #{extended_euclid(a, b)}"
